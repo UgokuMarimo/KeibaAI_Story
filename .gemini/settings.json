@@ -1,0 +1,6 @@
+{
+  "allowFileRead": true,
+  "allowFileWrite": true,
+  "allowShell": true,
+  "sandbox": false
+}

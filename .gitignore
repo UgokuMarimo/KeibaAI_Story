@@ -1,0 +1,146 @@
+# .gitignore (最終完成版)
+
+# ---------------------------------
+# Python & Virtual Environments
+# ---------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+ENV/
+
+# ---------------------------------
+# OS & Editor Specific
+# ---------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ---------------------------------
+# Generated Data & Models (IMPORTANT)
+# ---------------------------------
+# これらのディレクトリはGitで管理せず、実行時に再生成する
+/data/
+/encoded/
+/artifacts/
+/models/
+/tuning_results/
+/predict_data/ # m05(旧)の出力先だが、念のため記載
+/debug_output/ # m04のデバッグ出力先
+
+# ---------------------------------
+# Ignore entire AI_Analysis_System directory
+# ---------------------------------
+AI_Analysis_System/
+
+# ---------------------------------
+# Dependencies & Logs
+# ---------------------------------
+/node_modules/
+/package-lock.json
+*.log
+npm-debug.log*
+
+package.json
+db_schema_dump.txt
+debug_code/
+
+data_backup/
+config/
+
+# 予測結果・分析データ
+shap_results/
+predictions.db
+predict_data/exports/
+debug_log.txt
+vector_db/
+
+predict_results_backup/
+
+debug_predict_features/
+
+
+
+# .gitignore (最終完成版)
+
+# ---------------------------------
+# Python & Virtual Environments
+# ---------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+ENV/
+
+# ---------------------------------
+# OS & Editor Specific
+# ---------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ---------------------------------
+# Generated Data & Models (IMPORTANT)
+# ---------------------------------
+# これらのディレクトリはGitで管理せず、実行時に再生成する
+/data/
+/encoded/
+/artifacts/
+/models/
+/tuning_results/
+/predict_data/ # m05(旧)の出力先だが、念のため記載
+/debug_output/ # m04のデバッグ出力先
+
+# ---------------------------------
+# Ignore entire AI_Analysis_System directory
+# ---------------------------------
+AI_Analysis_System/
+
+# ---------------------------------
+# Dependencies & Logs
+# ---------------------------------
+/node_modules/
+/package-lock.json
+*.log
+npm-debug.log*
+
+package.json
+db_schema_dump.txt
+debug_code/
+
+data_backup/
+config/
+
+# 予測結果・分析データ
+shap_results/
+predictions.db
+predict_data/exports/
+debug_log.txt
+vector_db/
+
+predict_results_backup/
+
+debug_predict_features/
+
+
+
+feature_selection/
+
+# Clean up / Ignored by user request
+docs/
+shap_result_graf/
+cache/
+check_jan4.py
+debug_jra_error.html
+
+# Temporary scratch directory
+scratch/
+
+# Environment configurations
+.env
+.env.*
+
