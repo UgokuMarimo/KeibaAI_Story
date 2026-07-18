@@ -319,6 +319,7 @@ import os
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "https://discordapp.com/api/webhooks/1472550601547321576/kBJTclsdJkgJYD49Mtb774BAk-I414dqEwC_1G5RT_coD6_TNQfDbtbkfRWNQssLeyUX")
 DISCORD_EV_WEBHOOK_URL = os.getenv("DISCORD_EV_WEBHOOK_URL", "https://discordapp.com/api/webhooks/1472605057978732665/F0E4xl9QGZPOmEjhKpS5YcfF2G6QzuVawAbGq-T2qbbG0AlFvvo57fRNsShfZVQZjw6I")
 DISCORD_VOTE_WEBHOOK_URL = os.getenv("DISCORD_VOTE_WEBHOOK_URL", "https://discordapp.com/api/webhooks/1510275670905983109/vvR6Sc-TUjxykaJRPDO-el8PEV1fJfuyCcRF3SKP_FrjbvUD_C4SoXikn8MbONvOYvF3")
+DISCORD_REPORT_WEBHOOK_URL = os.getenv("DISCORD_REPORT_WEBHOOK_URL")
 DISCORD_NOTIFY_MAX_HORSES = 18 # 通知に含める馬の数 (全頭送る場合は18などの最大値を設定)
 
 # --- 予測・馬券戦略設定 ---
