@@ -113,6 +113,20 @@ def main():
     print(f"--- KeibaAI Model Auto-Update Tool ---")
     print(f"Started at: {dt.now()}")
     print(f"Target Project Root: {PROJECT_ROOT}")
+
+    # --- 起動時データベース同期 (Cloud -> Local) ---
+    try:
+        from utils.db_sync import get_sqlite_conn, get_pg_conn, create_pg_tables_if_not_exists, sync_pg_to_sqlite
+        print("\n[DB SYNC] 起動時データベース同期 (Cloud -> Local) を実行中...")
+        sqlite_conn = get_sqlite_conn()
+        pg_conn = get_pg_conn()
+        create_pg_tables_if_not_exists(pg_conn)
+        sync_pg_to_sqlite(pg_conn, sqlite_conn)
+        sqlite_conn.close()
+        pg_conn.close()
+        print("[DB SYNC] 起動時同期完了。\n")
+    except Exception as e:
+        print(f"[DB SYNC WARN] 起動時データベース同期に失敗しました (ローカルデータで続行します): {e}\n")
     
     start_time = time.time()
     python_exe = sys.executable
@@ -203,6 +217,19 @@ def main():
 
     # 最終的な Discord レポート送信
     send_update_report(step_results, start_time, success=True)
+
+    # --- 終了時データベース同期 (Local -> Cloud) ---
+    try:
+        from utils.db_sync import get_sqlite_conn, get_pg_conn, sync_sqlite_to_pg
+        print("\n[DB SYNC] 終了時データベース同期 (Local -> Cloud) を実行中...")
+        sqlite_conn = get_sqlite_conn()
+        pg_conn = get_pg_conn()
+        sync_sqlite_to_pg(sqlite_conn, pg_conn)
+        sqlite_conn.close()
+        pg_conn.close()
+        print("[DB SYNC] 終了時同期完了。\n")
+    except Exception as e:
+        print(f"[DB SYNC WARN] 終了時データベース同期に失敗しました: {e}\n")
 
     elapsed = time.time() - start_time
     print(f"\n{'='*60}")
