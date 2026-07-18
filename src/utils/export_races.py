@@ -2,7 +2,14 @@ import os
 import sys
 import pymysql
 import pandas as pd
+
+# プロジェクトルートの設定
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(_current_dir, '..', '..'))
+sys.path.append(PROJECT_ROOT)
+
 from dotenv import load_dotenv
+load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
 # Windows環境での文字化け対策（標準出力をUTF-8に変更）
 if sys.platform.startswith('win'):
@@ -11,9 +18,6 @@ if sys.platform.startswith('win'):
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 def main():
-    # .env ファイルから環境変数を読み込む
-    load_dotenv()
-
     # 環境変数からデータベース接続情報を取得
     db_host = os.getenv("DB_HOST")
     db_port = os.getenv("DB_PORT", "3306")
@@ -37,7 +41,7 @@ def main():
             print("[警告] 引数は YYYYMMDD 形式（例: 20260531）で指定してください。自動検出にフォールバックします。")
 
     # 出力先の設定
-    output_dir = os.path.join("data", "SQL_data")
+    output_dir = os.path.join(PROJECT_ROOT, "data", "SQL_data")
 
     try:
         # 接続の確立 (読み取り専用)
@@ -62,7 +66,7 @@ def main():
                 target_monthday = target_date_str[4:]
             else:
                 # 引数がない場合は、データベース全体の最新の開催日(Year, MonthDay)を取得する
-                # （日付整合性のため N_RACE の最新日から判定）
+                # （インポート時にヘッダー行が混入している場合を考慮し、Yearが4桁の数値であるものに限定）
                 print("データベース内の最新開催日を検索中...")
                 date_query = "SELECT Year, MonthDay FROM N_RACE WHERE Year REGEXP '^[0-9]{4}$' ORDER BY Year DESC, MonthDay DESC LIMIT 1"
                 cursor.execute(date_query)
@@ -77,24 +81,26 @@ def main():
                 target_date_str = f"{target_year}{target_monthday}"
             
             print(f"最新の開催日を検出しました: {target_year}年{target_monthday[:2]}月{target_monthday[2:]}日")
-            output_file = os.path.join(output_dir, f"shusso_uma_{target_date_str}.csv")
+            output_file = os.path.join(output_dir, f"races_{target_date_str}.csv")
 
-            # 2. 指定日の1日分の出走馬データを取得するクエリ
+            # 2. 指定日の1日分の全レースデータを取得するクエリ
             select_query = """
-                SELECT * FROM N_UMA_RACE 
+                SELECT * FROM N_RACE 
                 WHERE Year = %s AND MonthDay = %s
-                ORDER BY JyoCD, RaceNum, CAST(Umaban AS UNSIGNED)
+                ORDER BY JyoCD, RaceNum
             """
             
-            print(f"出走馬データを抽出中 ({target_year}-{target_monthday})...")
+            print(f"データを抽出中 ({target_year}-{target_monthday})...")
             # pandasのread_sqlで安全に取得
             df = pd.read_sql(select_query, connection, params=(target_year, target_monthday))
 
             if df.empty:
-                print(f"指定された日付 {target_date_str} の出走馬データがありませんでした。")
+                print(f"指定された日付 {target_date_str} のレースデータがありませんでした。")
                 return
 
-            print(f"抽出成功: {len(df)} 件の出走馬データを取得しました。")
+            print(f"抽出成功: {len(df)} 件のレースデータを取得しました。")
+            print("[デバッグ] 取得したDataFrameの最初の3行のデータ内容:")
+            print(df[['Year', 'MonthDay', 'JyoCD', 'RaceNum', 'Hondai']].head(3))
 
             # 3. 保存先フォルダの作成
             if not os.path.exists(output_dir):
@@ -107,7 +113,7 @@ def main():
 
             # 5. データの概要を簡易表示
             print("\n=== 抽出データのプレビュー ===")
-            preview_cols = ['Year', 'MonthDay', 'JyoCD', 'RaceNum', 'Wakuban', 'Umaban', 'Bamei', 'KisyuRyakusyo', 'Futan']
+            preview_cols = ['Year', 'MonthDay', 'JyoCD', 'RaceNum', 'Hondai', 'Kyori', 'TrackCD', 'TorokuTosu']
             # プレビュー用の列が存在することを確認して表示
             available_cols = [col for col in preview_cols if col in df.columns]
             print(df[available_cols].head(10))

@@ -56,9 +56,10 @@ import pandas as pd
 import numpy as np
 
 # --- Windows環境でのUnicode出力エラー対策 (重要) ---
-
-
-# --- Windows環境でのUnicode出力エラー対策 (重要) ---
+if sys.platform.startswith('win'):
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # .envファイルの読み込み
 load_dotenv()
@@ -657,11 +658,11 @@ def predict_race(race_id: str, run_shap: bool, use_overseas: bool = False, enabl
                             json.dump(horse_data, f, ensure_ascii=False, indent=4)
                         
                         # コンソール表示 (Top 3のみ)
-                        print(f"\n🐴 予測{horse_info['rank_win']}位: {horse_umaban}番 {horse_info['馬名']} (予測値: {horse_info['pred_win']:.4f})")
-                        print("  ✅ 好材料 TOP5")
+                        print(f"\n[予測] {horse_info['rank_win']}位: {horse_umaban}番 {horse_info['馬名']} (予測値: {horse_info['pred_win']:.4f})")
+                        print("  [好材料] TOP5")
                         for _, row in positive_features_all.head(5).iterrows():
                             print(f"    - {row['feature']:<30} (値: {row['value']:.2f}, 貢献度: {row['shap_value']:.4f})")
-                        print("  ❌ 不安材料 TOP5")
+                        print("  [不安材料] TOP5")
                         for _, row in negative_features_all.head(5).iterrows():
                             print(f"    - {row['feature']:<30} (値: {row['value']:.2f}, 貢献度: {row['shap_value']:.4f})")
 

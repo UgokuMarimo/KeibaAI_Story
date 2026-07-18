@@ -1,7 +1,14 @@
 import os
 import sys
 import pymysql
+
+# プロジェクトルートの設定
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(_current_dir, '..', '..'))
+sys.path.append(PROJECT_ROOT)
+
 from dotenv import load_dotenv
+load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
 # Windows環境での文字化け対策（標準出力をUTF-8に変更）
 if sys.platform.startswith('win'):
@@ -10,10 +17,6 @@ if sys.platform.startswith('win'):
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 def main():
-    # .env ファイルから環境変数を読み込む
-    load_dotenv()
-
-    # 環境変数からデータベース接続情報を取得
     db_host = os.getenv("DB_HOST")
     db_port = os.getenv("DB_PORT", "3306")
     db_user = os.getenv("DB_USER")
@@ -29,7 +32,7 @@ def main():
     # 接続パラメータのチェック
     if not all([db_host, db_user, db_password, db_name]):
         print("[エラー] 必要な環境変数が .env に設定されていないか、.env ファイルが見つかりません。")
-        print(f"確認：現在のディレクトリ内のファイル一覧: {os.listdir('.')}")
+        print(f"確認：プロジェクトルート内のファイル一覧: {os.listdir(PROJECT_ROOT)}")
         print(".env.example を参考に、DB_HOST, DB_USER, DB_PASSWORD, DB_NAME を設定してください。")
         return
 
