@@ -36,6 +36,18 @@ def send_discord_message(content, webhook_url):
         print(f"[ERROR] Failed to send Discord notification: {e}")
         return False
 
+def get_recent_weekend_dates() -> list:
+    """今日から遡って、直近7日間のうちの土曜日・日曜日(YYYY-MM-DD)の日付を返す"""
+    import datetime
+    today = datetime.date.today()
+    weekend_dates = []
+    for i in range(1, 8):
+        d = today - datetime.timedelta(days=i)
+        if d.weekday() in [5, 6]:
+            weekend_dates.append(d.strftime("%Y-%m-%d"))
+    weekend_dates.sort()
+    return weekend_dates
+
 def calculate_consecutive_losses(is_win_series):
     """
     is_win_series: pandas Series or list where 0 means loss, 1 means win
@@ -133,26 +145,37 @@ def main():
     PERSONAL_INVEST = 42600
     PERSONAL_PAYOUT = 25550
 
-    # 指標の計算
-    ai_bets = len(selected_single)
-    ai_hits = selected_single['is_win'].sum()
-    ai_hit_rate = ai_hits / ai_bets * 100 if ai_bets > 0 else 0.0
-    ai_investment = ai_bets * 100
-    ai_payout = selected_single['payout'].sum()
+    # 指標の計算 (通算実績)
+    ai_bets_total = len(selected_single)
+    ai_hits_total = selected_single['is_win'].sum()
+    ai_hit_rate_total = ai_hits_total / ai_bets_total * 100 if ai_bets_total > 0 else 0.0
+    ai_investment_total = ai_bets_total * 100
+    ai_payout_total = selected_single['payout'].sum()
 
-    # 全体（個人＋AI）の金銭成績
-    total_investment = ai_investment + PERSONAL_INVEST
-    total_payout_amount = ai_payout + PERSONAL_PAYOUT
-    total_recovery_rate = total_payout_amount / total_investment * 100
+    # 全体（個人＋AI）の金銭成績 (通算実績)
+    total_investment = ai_investment_total + PERSONAL_INVEST
+    total_payout_amount = ai_payout_total + PERSONAL_PAYOUT
+    total_recovery_rate = total_payout_amount / total_investment * 100 if total_investment > 0 else 0.0
     total_net_profit = total_payout_amount - total_investment
 
-    # 4. 連敗数と統計的確率の計算
+    # 今週（直近週末）の実績集計
+    recent_weekends = get_recent_weekend_dates()
+    df_weekly = selected_single[selected_single['kaisai_date'].isin(recent_weekends)]
+    
+    ai_bets_weekly = len(df_weekly)
+    ai_hits_weekly = df_weekly['is_win'].sum()
+    ai_hit_rate_weekly = ai_hits_weekly / ai_bets_weekly * 100 if ai_bets_weekly > 0 else 0.0
+    ai_investment_weekly = ai_bets_weekly * 100
+    ai_payout_weekly = df_weekly['payout'].sum()
+    ai_recovery_rate_weekly = ai_payout_weekly / ai_investment_weekly * 100 if ai_investment_weekly > 0 else 0.0
+
+    # 4. 連敗数と統計的確率の計算 (通算実績ベース)
     is_win_series = selected_single['is_win'].tolist()
     max_losses, current_losses = calculate_consecutive_losses(is_win_series)
     
     # 確率の計算 (的中率 p, 試行回数 n, 最大連敗数 k)
-    p = ai_hit_rate / 100.0
-    n = ai_bets
+    p = ai_hit_rate_total / 100.0
+    n = ai_bets_total
     k = max_losses
     prob = probability_of_k_consecutive_losses(n, p, k)
     
@@ -167,8 +190,8 @@ def main():
     # 予測が存在する最古の日付を取得 (参考用)
     min_date_str = selected_single['kaisai_date'].min() # 例: '2026-04-12'
 
-    # AI単体の回収率計算
-    ai_recovery_rate = ai_payout / ai_investment * 100 if ai_investment > 0 else 0.0
+    # AI単体の通算回収率計算
+    ai_recovery_rate_total = ai_payout_total / ai_investment_total * 100 if ai_investment_total > 0 else 0.0
 
     # メッセージ作成
     border = "━" * 20
@@ -181,11 +204,11 @@ def main():
 - 💰 **トータル純損益** : {int(total_net_profit):+,} 円
 {border}
 🤖 **今週の実績**
-- 🗳️ **AI購入頭数**   : {ai_bets} 頭
-- 🎯 **AI的中率**     : {ai_hit_rate:.1f}% ({ai_hits} / {ai_bets})
-- 💵 **AI投資金額**   : {ai_investment:,} 円
-- 💎 **AI回収金額**   : {int(ai_payout):,} 円
-- 📊 **AI回収率**     : {ai_recovery_rate:.1f}%"""
+- 🗳️ **AI購入頭数**   : {ai_bets_weekly} 頭
+- 🎯 **AI的中率**     : {ai_hit_rate_weekly:.1f}% ({ai_hits_weekly} / {ai_bets_weekly})
+- 💵 **AI投資金額**   : {ai_investment_weekly:,} 円
+- 💎 **AI回収金額**   : {int(ai_payout_weekly):,} 円
+- 📊 **AI回収率**     : {ai_recovery_rate_weekly:.1f}%"""
 
     try:
         print(message)
