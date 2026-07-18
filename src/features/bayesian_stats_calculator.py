@@ -127,6 +127,11 @@ class BayesianStatsCalculator:
             weight_change_suitability = self.calculate_bayesian_rate(df_temp, ['体重増減カテゴリ'], '体重変化適性', C_val=self.c_bias)
             calculated_stats['weight_change_suitability'] = weight_change_suitability
 
+        # 7. 開催枠番バイアス (枠番/ゲートグループ別)
+        if '場名' in df_temp.columns and '馬番グループ' in df_temp.columns and '着順' in df_temp.columns:
+            venue_bias = self.calculate_bayesian_rate(df_temp, ['場名', '馬番グループ'], '開催枠番バイアス', C_val=self.c_bias)
+            calculated_stats['venue_bias_by_gate_group'] = venue_bias
+
         # 8. 馬体重統計
         if '馬' in df_temp.columns and '体重' in df_temp.columns:
             df_temp['体重'] = pd.to_numeric(df_temp['体重'], errors='coerce')
@@ -226,6 +231,13 @@ class BayesianStatsCalculator:
             df_copy['体重変化適性'] = df_copy['体重変化適性'].fillna(0.075)
         else:
             df_copy['体重変化適性'] = 0.075
+
+        # 6. 開催枠番バイアスのマージ
+        if 'venue_bias_by_gate_group' in stats and '場名' in df_copy.columns and '馬番グループ' in df_copy.columns:
+            df_copy = pd.merge(df_copy, stats['venue_bias_by_gate_group'], on=['場名', '馬番グループ'], how='left')
+            df_copy['開催枠番バイアス'] = df_copy['開催枠番バイアス'].fillna(0.075)
+        else:
+            df_copy['開催枠番バイアス'] = 0.075
 
         # 6. 馬体重統計のマージ
         if 'horse_weight_stats' in stats and '馬' in df_copy.columns:

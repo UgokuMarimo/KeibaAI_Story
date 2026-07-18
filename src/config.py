@@ -154,7 +154,7 @@ CATEGORICAL_FEATURES = [
 
 STATS_TO_SAVE = [
     'jockey_rate', 'jockey_venue_rate', 'horse_weight_stats', 'weight_change_suitability', 
-    'track_running_style_suitability', 'jockey_track_suitability',
+    'track_running_style_suitability', 'jockey_track_suitability', 'venue_bias_by_gate_group',
     'track_bias_map',
     'trainer_rate', 'trainer_venue_rate', 'owner_rate'
 ]

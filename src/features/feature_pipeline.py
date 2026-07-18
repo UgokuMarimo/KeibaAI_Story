@@ -519,7 +519,7 @@ class FeatureEngineerPipeline:
                     df_copy[col] = np.nan
 
         # 不要なカラムの削除
-        cols_to_drop = ['頭数', '枠番', 'ペース', '厩舎', '開催枠番バイアス', '想定脚質']
+        cols_to_drop = ['頭数', '枠番', 'ペース', '厩舎', '想定脚質']
         df_copy.drop(columns=[c for c in cols_to_drop if c in df_copy.columns], errors='ignore', inplace=True)
 
         return df_copy, label_encoders
