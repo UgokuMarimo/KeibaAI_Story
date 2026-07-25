@@ -159,13 +159,18 @@ def send_x_channel_notification(race_id, race_info, result_df, webhook_url=None)
     else:
         prob_col = 'pred_win'
 
-    # 正規化勝率が10% (0.10) 以上の馬を全頭抽出
+    # 正規化勝率が10% (0.10) 以上の馬を抽出
     filtered_horses = df_copy[df_copy[prob_col] >= 0.10].sort_values(prob_col, ascending=False)
-    # 10%以上の馬がゼロ頭の場合は上位2頭をフォールバック表示
+    
+    # 勝率10%以上の馬が1頭もいない場合はXチャンネルへの通知をスキップ (スルー)
     if filtered_horses.empty:
-        filtered_horses = df_copy.sort_values(prob_col, ascending=False).head(2)
+        print(f"[INFO] Race {race_id}: No horses with win prob >= 10%. Skipping X channel notification.")
+        return
 
-    rank_emojis = ["🥇", "🥈", "🥉"]
+    # 10%以上の馬が6頭以上いる場合でも最大5頭までに制限
+    filtered_horses = filtered_horses.head(5)
+
+    rank_emojis = ["🥇", "🥈", "🥉", "4.", "5."]
 
     # 本文テキスト生成
     x_lines = [f"🏁【{venue}{race_number}R {race_name}】AI勝率予測"]
@@ -178,7 +183,7 @@ def send_x_channel_notification(race_id, race_info, result_df, webhook_url=None)
         
         h_name = str(r.get('馬名') if pd.notnull(r.get('馬名')) else r.get('horse_name', ''))
         
-        emoji = rank_emojis[idx] if idx < 3 else f"{idx+1}."
+        emoji = rank_emojis[idx] if idx < 5 else f"{idx+1}."
         x_lines.append(f"{emoji} {u_num}番 {h_name} ({w_val:.1%})")
 
     # 末尾馬の後に確実に改行を入れてハッシュタグを配置
