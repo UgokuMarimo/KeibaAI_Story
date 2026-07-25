@@ -138,11 +138,3 @@ def generate_weekly_report_data(target_date_str: str = None) -> dict:
         'weekly': weekly_perf,
         'yearly': yearly_perf
     }
-
-
-if __name__ == "__main__":
-    test_date = datetime.now().strftime('%Y-%m-%d')
-    print(f"Calculating weekly report data for target_date: {test_date}...")
-    report_data = generate_weekly_report_data(test_date)
-    print("\n--- Report Data Summary ---")
-    print(json.dumps(report_data, ensure_ascii=False, indent=2))

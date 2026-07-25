@@ -13,7 +13,8 @@ sys.path.append(PROJECT_ROOT)
 sys.path.append(os.path.join(PROJECT_ROOT, 'src'))
 
 import src.config as config
-from analytics.weekly_report_calculator import generate_weekly_report_data
+from analysis.weekly_report_calculator import generate_weekly_report_data
+
 
 
 def format_weekly_report_text(report_data: dict) -> str:
