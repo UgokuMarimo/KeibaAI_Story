@@ -319,7 +319,9 @@ PLACE_MAP = {
 
 # --- 通知設定 ---
 import os
-DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/1530550474292461598/8YgkbMBMNhwE1EG2nUd55r8oAMX2rLRHNd-EsHpjfN30zHGi8n-WIYUsMZ6kEbY3dNZN")
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "https://discordapp.com/api/webhooks/1472550601547321576/kBJTclsdJkgJYD49Mtb774BAk-I414dqEwC_1G5RT_coD6_TNQfDbtbkfRWNQssLeyUX")
+DISCORD_X_WEBHOOK_URL = os.getenv("DISCORD_X_WEBHOOK_URL", "https://discord.com/api/webhooks/1530550474292461598/8YgkbMBMNhwE1EG2nUd55r8oAMX2rLRHNd-EsHpjfN30zHGi8n-WIYUsMZ6kEbY3dNZN")
+
 
 DISCORD_EV_WEBHOOK_URL = os.getenv("DISCORD_EV_WEBHOOK_URL", "https://discordapp.com/api/webhooks/1472605057978732665/F0E4xl9QGZPOmEjhKpS5YcfF2G6QzuVawAbGq-T2qbbG0AlFvvo57fRNsShfZVQZjw6I")
 DISCORD_VOTE_WEBHOOK_URL = os.getenv("DISCORD_VOTE_WEBHOOK_URL", "https://discordapp.com/api/webhooks/1510275670905983109/vvR6Sc-TUjxykaJRPDO-el8PEV1fJfuyCcRF3SKP_FrjbvUD_C4SoXikn8MbONvOYvF3")

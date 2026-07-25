@@ -71,7 +71,8 @@ from utils.feature_pipeline import (
     engineer_advanced_features, add_race_level_features, encode_and_finalize
 )
 from utils.scraper import scrape_shutuba_table, load_past_race_data, load_past_race_data_with_overseas
-from utils.db_utils import save_prediction_to_db, send_discord_webhook, format_for_discord
+from utils.db_utils import save_prediction_to_db, send_discord_webhook, format_for_discord, format_for_x_copypaste
+
 
 # 解説生成用モジュール
 try:
@@ -744,11 +745,19 @@ def predict_race(race_id: str, run_shap: bool, use_overseas: bool = False, enabl
         print(f"-> Full prediction summary saved to: {summary_path}")
 
         # --- [完了] 通知とDB保存 ---
-        discord_message = format_for_discord(race_id, shutuba_df.iloc[0], final_result_df)
         if send_discord:
+            # 1. 既存の通知チャンネルに従来の予測テーブルを送信
+            discord_message = format_for_discord(race_id, shutuba_df.iloc[0], final_result_df)
             send_discord_webhook(discord_message)
+
+            # 2. 新設したX用チャンネルにコピペ専用文面を送信
+            x_webhook = getattr(config, 'DISCORD_X_WEBHOOK_URL', None)
+            if x_webhook:
+                x_copypaste_message = format_for_x_copypaste(race_id, shutuba_df.iloc[0], final_result_df)
+                send_discord_webhook(x_copypaste_message, webhook_url=x_webhook)
         else:
             print("[INFO] Discord notification skipped.")
+
         
         try:
             save_prediction_to_db(final_result_df, shutuba_df, race_id)

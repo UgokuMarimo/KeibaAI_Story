@@ -98,8 +98,6 @@ def send_discord_webhook(message: str, webhook_url: str = None):
         print(f"-> Message sent to Discord successfully. (Target: {target_url[-10:]}...)")
     except requests.exceptions.RequestException as e: print(f"[DISCORD ERROR]: {e}")
 
-import urllib.parse
-
 def format_for_discord(race_id, race_info, result_df):
     race_name = race_info.get('レース名', '不明'); venue = race_info.get('場名', '不明')
     race_number = str(race_id)[-2:].lstrip('0')
@@ -128,28 +126,40 @@ def format_for_discord(race_id, race_info, result_df):
             place_prob_val
         )
     body += "```"
+    return header + body
 
-    # X (Twitter) 1タップ投稿リンクの生成
-    try:
-        top_3 = result_df.head(3)
-        rank_emojis = ["🥇", "🥈", "🥉"]
-        x_lines = [f"🏁【{venue}{race_number}R {race_name}】AI勝率予測"]
-        for idx, (_, r) in enumerate(top_3.iterrows()):
-            w_val = r.get(prob_col, 0)
-            u_num = int(r.get('馬番', 0))
-            h_name = str(r.get('馬名', ''))[:5]
-            emoji = rank_emojis[idx] if idx < 3 else f"{idx+1}."
-            x_lines.append(f"{emoji} {u_num}番 {h_name} ({w_val:.1%})")
-        x_lines.append(f"\n#競馬AI #競馬予想 #{venue}競馬")
-        
-        x_text = "\n".join(x_lines)
-        encoded_text = urllib.parse.quote(x_text)
-        intent_url = f"https://twitter.com/intent/tweet?text={encoded_text}"
-        x_link_footer = f"\n[📱 **X (旧Twitter) にこの予測を1タップで投稿する**]({intent_url})"
-    except Exception as e:
-        x_link_footer = ""
 
-    return header + body + x_link_footer
+def format_for_x_copypaste(race_id, race_info, result_df):
+    """
+    新しく作成したDiscordチャンネルに送信するX(旧Twitter)用コピペ専用文面。
+    コードブロック内で一括選択・ワンタップコピーが可能。
+    """
+    if isinstance(race_info, pd.Series):
+        race_info = race_info.to_dict()
+    race_name = race_info.get('レース名', '不明')
+    venue = race_info.get('場名', '不明')
+    race_number = str(race_id)[-2:].lstrip('0')
+
+    prob_col = 'normalized_pred_win' if 'normalized_pred_win' in result_df.columns else 'pred_win'
+    top_3 = result_df.head(3)
+    rank_emojis = ["🥇", "🥈", "🥉"]
+
+    x_lines = [f"🏁【{venue}{race_number}R {race_name}】AI勝率予測"]
+    for idx, (_, r) in enumerate(top_3.iterrows()):
+        w_val = r.get(prob_col, 0)
+        u_num = int(r.get('馬番', 0))
+        h_name = str(r.get('馬名', ''))[:6]
+        emoji = rank_emojis[idx] if idx < 3 else f"{idx+1}."
+        x_lines.append(f"{emoji} {u_num}番 {h_name} ({w_val:.1%})")
+
+    x_lines.append(f"\n#競馬AI #競馬予想 #{venue}競馬")
+    raw_tweet_text = "\n".join(x_lines)
+
+    message = f"📱 **【X(旧Twitter)投稿用 コピペ文面】** (`{venue}{race_number}R {race_name}`)\n"
+    message += "↓ 枠内を長押し/タップして全選択コピーしてください\n"
+    message += "```\n" + raw_tweet_text + "\n```"
+    return message
+
 
 
 def save_vote_to_db(race_id: str, umaban: int, horse_name: str, kaisai_date: str, 
