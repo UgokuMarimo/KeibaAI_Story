@@ -159,12 +159,17 @@ def send_x_channel_notification(race_id, race_info, result_df, webhook_url=None)
     else:
         prob_col = 'pred_win'
 
-    top_horses = df_copy.sort_values(prob_col, ascending=False).head(3)
+    # 正規化勝率が10% (0.10) 以上の馬を全頭抽出
+    filtered_horses = df_copy[df_copy[prob_col] >= 0.10].sort_values(prob_col, ascending=False)
+    # 10%以上の馬がゼロ頭の場合は上位2頭をフォールバック表示
+    if filtered_horses.empty:
+        filtered_horses = df_copy.sort_values(prob_col, ascending=False).head(2)
+
     rank_emojis = ["🥇", "🥈", "🥉"]
 
     # 本文テキスト生成
     x_lines = [f"🏁【{venue}{race_number}R {race_name}】AI勝率予測"]
-    for idx, (_, r) in enumerate(top_horses.iterrows()):
+    for idx, (_, r) in enumerate(filtered_horses.iterrows()):
         w_val = r.get(prob_col, 0)
         
         # カラム名のフォールバック (日本語カラム '馬番'/'馬名' または 英語カラム 'umaban'/'horse_name')
@@ -173,11 +178,12 @@ def send_x_channel_notification(race_id, race_info, result_df, webhook_url=None)
         
         h_name = str(r.get('馬名') if pd.notnull(r.get('馬名')) else r.get('horse_name', ''))
         
-        emoji = rank_emojis[idx]
+        emoji = rank_emojis[idx] if idx < 3 else f"{idx+1}."
         x_lines.append(f"{emoji} {u_num}番 {h_name} ({w_val:.1%})")
 
-    # 3位の後に確実に改行を入れてハッシュタグを配置
+    # 末尾馬の後に確実に改行を入れてハッシュタグを配置
     x_lines.append(f"\n#競馬AI #競馬予想 #{venue}競馬")
+
     raw_tweet_text = "\n".join(x_lines)
 
     # X Intent URL 生成 (Embedのurlフィールドで使用すると二重エンコードされず完璧に動作)
