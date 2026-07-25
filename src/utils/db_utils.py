@@ -132,7 +132,7 @@ def format_for_discord(race_id, race_info, result_df):
 
 def send_x_channel_notification(race_id, race_info, result_df, webhook_url=None):
     """
-    X(旧Twitter)用チャンネルへ1タップ投稿リンクおよびコピペ枠を送信する。
+    X(旧Twitter)用チャンネルへ1タップ投稿リンク(Embed)およびコピペ枠を送信する。
     """
     if not webhook_url:
         webhook_url = getattr(config, 'DISCORD_X_WEBHOOK_URL', None)
@@ -146,43 +146,29 @@ def send_x_channel_notification(race_id, race_info, result_df, webhook_url=None)
     race_number = str(race_id)[-2:].lstrip('0')
 
     prob_col = 'normalized_pred_win' if 'normalized_pred_win' in result_df.columns else 'pred_win'
-    # 140文字以内に安全に収めるため上位5頭を取得
-    top_horses = result_df.head(5)
-    rank_emojis = ["🥇", "🥈", "🥉", "4.", "5."]
+    # ユーザー要望により上位3頭・馬名フルネーム（カットなし）で表示
+    top_horses = result_df.head(3)
+    rank_emojis = ["🥇", "🥈", "🥉"]
 
-    # 本文テキスト
+    # 本文テキスト生成
     x_lines = [f"🏁【{venue}{race_number}R {race_name}】AI勝率予測"]
     for idx, (_, r) in enumerate(top_horses.iterrows()):
         w_val = r.get(prob_col, 0)
         u_num = int(r.get('馬番', 0))
-        h_name = str(r.get('馬名', ''))[:5] # 馬名5字
-        emoji = rank_emojis[idx] if idx < len(rank_emojis) else f"{idx+1}."
+        h_name = str(r.get('馬名', '')) # フルネーム（切らない）
+        emoji = rank_emojis[idx]
         x_lines.append(f"{emoji} {u_num}番 {h_name} ({w_val:.1%})")
 
-    # 改行を入れてハッシュタグを配置
+    # 3位の後に確実に改行を入れてハッシュタグを配置
     x_lines.append(f"\n#競馬AI #競馬予想 #{venue}競馬")
     raw_tweet_text = "\n".join(x_lines)
 
-    # 140文字オーバー安全切り詰めチェック
-    if len(raw_tweet_text) > 140:
-        # 4頭に絞る
-        x_lines = [f"🏁【{venue}{race_number}R {race_name}】AI勝率予測"]
-        for idx, (_, r) in enumerate(result_df.head(4).iterrows()):
-            w_val = r.get(prob_col, 0)
-            u_num = int(r.get('馬番', 0))
-            h_name = str(r.get('馬名', ''))[:5]
-            emoji = rank_emojis[idx]
-            x_lines.append(f"{emoji} {u_num}番 {h_name} ({w_val:.1%})")
-        x_lines.append(f"\n#競馬AI #競馬予想 #{venue}競馬")
-        raw_tweet_text = "\n".join(x_lines)
-
-    # X Intent URL 生成 (text に改行付きで含めて二重エンコード・ハッシュタグ直結を防止)
+    # X Intent URL 生成 (Embedのurlフィールドで使用すると二重エンコードされず完璧に動作)
     encoded_text = urllib.parse.quote(raw_tweet_text)
     intent_url = f"https://twitter.com/intent/tweet?text={encoded_text}"
 
     content = f"📱 **【X(旧Twitter) 投稿アシスト】** (`{venue}{race_number}R {race_name}`)\n\n"
-    content += f"👉 [**【ここを1タップでX投稿画面を開く】**]({intent_url})\n\n"
-    content += "↓ または以下の枠内を長押し/タップして全選択コピーしてください:\n"
+    content += "↓ 1タップ投稿は下の**青いカードタイトル**をタップ、手動の場合は枠内を全選択コピーしてください:\n"
     content += "```\n" + raw_tweet_text + "\n```"
 
     payload = {
@@ -192,11 +178,18 @@ def send_x_channel_notification(race_id, race_info, result_df, webhook_url=None)
             {
                 "title": f"🚀 1タップでX(Twitter)に投稿する ({venue}{race_number}R)",
                 "url": intent_url,
-                "description": "青いタイトルまたは上記リンクをクリックすると、入力済みのツイート画面が開きます！",
+                "description": "👉 上の青いタイトル「🚀 1タップでX(Twitter)に投稿する」をタップすると、フルネーム＆改行済みのツイート画面が開きます！",
                 "color": 1942002
             }
         ]
     }
+
+    try:
+        requests.post(webhook_url, json=payload)
+        print(f"-> Sent X post assistance to Discord X channel successfully.")
+    except Exception as e:
+        print(f"[DISCORD ERROR]: Failed to send to X channel: {e}")
+
 
 
     try:
