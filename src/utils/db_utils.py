@@ -4,6 +4,7 @@ import requests
 import json
 import os
 import sys
+import urllib.parse
 
 # --- プロジェクトパス設定 ---
 _current_dir = os.path.dirname(os.path.abspath(__file__)); PROJECT_ROOT = os.path.abspath(os.path.join(_current_dir, '..', '..')); sys.path.append(PROJECT_ROOT); sys.path.append(os.path.join(PROJECT_ROOT, 'src'))
@@ -129,11 +130,15 @@ def format_for_discord(race_id, race_info, result_df):
     return header + body
 
 
-def format_for_x_copypaste(race_id, race_info, result_df):
+def send_x_channel_notification(race_id, race_info, result_df, webhook_url=None):
     """
-    新しく作成したDiscordチャンネルに送信するX(旧Twitter)用コピペ専用文面。
-    コードブロック内で一括選択・ワンタップコピーが可能。
+    X(旧Twitter)用チャンネルへ1タップ投稿リンクおよびコピペ枠を送信する。
     """
+    if not webhook_url:
+        webhook_url = getattr(config, 'DISCORD_X_WEBHOOK_URL', None)
+    if not webhook_url:
+        return
+
     if isinstance(race_info, pd.Series):
         race_info = race_info.to_dict()
     race_name = race_info.get('レース名', '不明')
@@ -144,21 +149,50 @@ def format_for_x_copypaste(race_id, race_info, result_df):
     top_3 = result_df.head(3)
     rank_emojis = ["🥇", "🥈", "🥉"]
 
-    x_lines = [f"🏁【{venue}{race_number}R {race_name}】AI勝率予測"]
+    # 本文テキスト
+    x_body_lines = [f"🏁【{venue}{race_number}R {race_name}】AI勝率予測"]
     for idx, (_, r) in enumerate(top_3.iterrows()):
         w_val = r.get(prob_col, 0)
         u_num = int(r.get('馬番', 0))
         h_name = str(r.get('馬名', ''))[:6]
         emoji = rank_emojis[idx] if idx < 3 else f"{idx+1}."
-        x_lines.append(f"{emoji} {u_num}番 {h_name} ({w_val:.1%})")
+        x_body_lines.append(f"{emoji} {u_num}番 {h_name} ({w_val:.1%})")
 
-    x_lines.append(f"\n#競馬AI #競馬予想 #{venue}競馬")
-    raw_tweet_text = "\n".join(x_lines)
+    hashtags_str = f"競馬AI,競馬予想,{venue}競馬"
+    full_lines = list(x_body_lines)
+    full_lines.append(f"\n#競馬AI #競馬予想 #{venue}競馬")
+    raw_tweet_text = "\n".join(full_lines)
 
-    message = f"📱 **【X(旧Twitter)投稿用 コピペ文面】** (`{venue}{race_number}R {race_name}`)\n"
-    message += "↓ 枠内を長押し/タップして全選択コピーしてください\n"
-    message += "```\n" + raw_tweet_text + "\n```"
-    return message
+    # X Intent URL 生成 (text と hashtags を分離して二重エンコード文字化けを解消)
+    tweet_body = "\n".join(x_body_lines)
+    encoded_text = urllib.parse.quote(tweet_body)
+    encoded_hashtags = urllib.parse.quote(hashtags_str)
+    intent_url = f"https://twitter.com/intent/tweet?text={encoded_text}&hashtags={encoded_hashtags}"
+
+    content = f"📱 **【X(旧Twitter) 投稿アシスト】** (`{venue}{race_number}R {race_name}`)\n\n"
+    content += f"👉 [**【ここを1タップでX投稿画面を開く】**]({intent_url})\n\n"
+    content += "↓ または以下の枠内を長押し/タップして全選択コピーしてください:\n"
+    content += "```\n" + raw_tweet_text + "\n```"
+
+    payload = {
+        "username": "競馬AI X投稿アシスト",
+        "content": content,
+        "embeds": [
+            {
+                "title": f"🚀 1タップでX(Twitter)に投稿する ({venue}{race_number}R)",
+                "url": intent_url,
+                "description": "青いタイトルまたは上記リンクをクリックすると、入力済みのツイート画面が開きます！",
+                "color": 1942002
+            }
+        ]
+    }
+
+    try:
+        requests.post(webhook_url, json=payload)
+        print(f"-> Sent X post assistance to Discord X channel successfully.")
+    except Exception as e:
+        print(f"[DISCORD ERROR]: Failed to send to X channel: {e}")
+
 
 
 
