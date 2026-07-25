@@ -145,17 +145,34 @@ def send_x_channel_notification(race_id, race_info, result_df, webhook_url=None)
     venue = race_info.get('場名', '不明')
     race_number = str(race_id)[-2:].lstrip('0')
 
-    prob_col = 'normalized_pred_win' if 'normalized_pred_win' in result_df.columns else 'pred_win'
-    # ユーザー要望により上位3頭・馬名フルネーム（カットなし）で表示
-    top_horses = result_df.head(3)
+    # 勝率の正規化 (全馬の合計が100%になるように計算)
+    df_copy = result_df.copy()
+    if 'normalized_pred_win' in df_copy.columns:
+        prob_col = 'normalized_pred_win'
+    elif 'pred_win' in df_copy.columns:
+        total_pred = df_copy['pred_win'].sum()
+        if total_pred > 0:
+            df_copy['normalized_pred_win'] = df_copy['pred_win'] / total_pred
+            prob_col = 'normalized_pred_win'
+        else:
+            prob_col = 'pred_win'
+    else:
+        prob_col = 'pred_win'
+
+    top_horses = df_copy.sort_values(prob_col, ascending=False).head(3)
     rank_emojis = ["🥇", "🥈", "🥉"]
 
     # 本文テキスト生成
     x_lines = [f"🏁【{venue}{race_number}R {race_name}】AI勝率予測"]
     for idx, (_, r) in enumerate(top_horses.iterrows()):
         w_val = r.get(prob_col, 0)
-        u_num = int(r.get('馬番', 0))
-        h_name = str(r.get('馬名', '')) # フルネーム（切らない）
+        
+        # カラム名のフォールバック (日本語カラム '馬番'/'馬名' または 英語カラム 'umaban'/'horse_name')
+        u_num_raw = r.get('馬番') if pd.notnull(r.get('馬番')) else r.get('umaban', 0)
+        u_num = int(u_num_raw) if u_num_raw is not None else 0
+        
+        h_name = str(r.get('馬名') if pd.notnull(r.get('馬名')) else r.get('horse_name', ''))
+        
         emoji = rank_emojis[idx]
         x_lines.append(f"{emoji} {u_num}番 {h_name} ({w_val:.1%})")
 
@@ -190,13 +207,6 @@ def send_x_channel_notification(race_id, race_info, result_df, webhook_url=None)
     except Exception as e:
         print(f"[DISCORD ERROR]: Failed to send to X channel: {e}")
 
-
-
-    try:
-        requests.post(webhook_url, json=payload)
-        print(f"-> Sent X post assistance to Discord X channel successfully.")
-    except Exception as e:
-        print(f"[DISCORD ERROR]: Failed to send to X channel: {e}")
 
 
 
