@@ -87,7 +87,19 @@ def process_odds_and_ev_5min(race_id: str, target_date_str: str) -> bool:
     merged_df['expected_value'] = merged_df['pred_win_prob'] * merged_df['win_odds']
     merged_df['expected_value'] = merged_df['expected_value'].fillna(0)
     
-    # 4. 通知
+    # 4. 5分前オッズをデータベースに保存
+    try:
+        from .db_utils import update_predictions_odds_bulk
+        odds_dict = {
+            int(row['umaban']): row['win_odds'] 
+            for _, row in merged_df.iterrows() 
+            if pd.notna(row.get('win_odds'))
+        }
+        update_predictions_odds_bulk(race_id, odds_dict, 'odds_5min')
+    except Exception as db_err:
+        print(f"[DB ERROR] Failed to save 5-min odds to DB for race {race_id}: {db_err}")
+
+    # 5. 通知
     message = format_ev_message(venue_name, race_num, merged_df)
     webhook_url = getattr(config, 'DISCORD_EV_WEBHOOK_URL', None)
     if webhook_url:
@@ -155,7 +167,19 @@ def process_odds_and_ev_2min(race_id: str, target_date_str: str) -> bool:
     merged_df['expected_value'] = merged_df['pred_win_prob'] * merged_df['win_odds']
     merged_df['expected_value'] = merged_df['expected_value'].fillna(0)
     
-    # 4. 自動投票 (Auto-Voting) の最終判定と実行
+    # 4. 3分前オッズをデータベースに保存
+    try:
+        from .db_utils import update_predictions_odds_bulk
+        odds_dict = {
+            int(row['umaban']): row['win_odds'] 
+            for _, row in merged_df.iterrows() 
+            if pd.notna(row.get('win_odds'))
+        }
+        update_predictions_odds_bulk(race_id, odds_dict, 'odds_3min')
+    except Exception as db_err:
+        print(f"[DB ERROR] Failed to save 3-min odds to DB for race {race_id}: {db_err}")
+
+    # 5. 自動投票 (Auto-Voting) の最終判定と実行
     min_win_prob = getattr(config, 'MIN_WIN_PROB', 0.10)
     target_ev_vote = getattr(config, 'TARGET_EV_VOTE', 1.3)
     

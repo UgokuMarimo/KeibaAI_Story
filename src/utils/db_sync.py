@@ -64,6 +64,8 @@ def create_pg_tables_if_not_exists(pg_conn):
             tansho_ninki INTEGER,
             result_rank INTEGER,
             prediction_timestamp VARCHAR(30),
+            odds_5min DOUBLE PRECISION,
+            odds_3min DOUBLE PRECISION,
             PRIMARY KEY (race_id, umaban)
         );
         """,
@@ -103,13 +105,21 @@ def create_pg_tables_if_not_exists(pg_conn):
             sanrentan_payout INTEGER,
             sanrentan_numbers VARCHAR(50)
         );
-        """
+        """,
+        # カラム移行（既存テーブルへの追加）
+        "ALTER TABLE predictions ADD COLUMN IF NOT EXISTS odds_5min DOUBLE PRECISION;",
+        "ALTER TABLE predictions ADD COLUMN IF NOT EXISTS odds_3min DOUBLE PRECISION;",
+        # 4. RLS (Row Level Security) の有効化
+        "ALTER TABLE predictions ENABLE ROW LEVEL SECURITY;",
+        "ALTER TABLE votes ENABLE ROW LEVEL SECURITY;",
+        "ALTER TABLE payouts ENABLE ROW LEVEL SECURITY;"
     ]
     with pg_conn.cursor() as cur:
         for q in queries:
             cur.execute(q)
     pg_conn.commit()
-    print("[DB SYNC] Supabaseのテーブルスキーマ確認完了。")
+    print("[DB SYNC] Supabaseのテーブルスキーマ確認およびRLS設定完了。")
+
 
 def sync_sqlite_to_pg(sqlite_conn, pg_conn):
     """SQLite (ローカル) から PostgreSQL (Supabase) へプッシュ"""
@@ -120,7 +130,8 @@ def sync_sqlite_to_pg(sqlite_conn, pg_conn):
             'cols': [
                 'race_id', 'umaban', 'horse_name', 'kaisai_date', 'keibajo', 'race_number',
                 'track_type', 'race_class', 'race_name', 'pred_win', 'pred_rank', 'pred_place',
-                'tansho_odds', 'tansho_ninki', 'result_rank', 'prediction_timestamp'
+                'tansho_odds', 'tansho_ninki', 'result_rank', 'prediction_timestamp',
+                'odds_5min', 'odds_3min'
             ],
             'pkeys': ['race_id', 'umaban']
         },
@@ -190,6 +201,8 @@ def sync_pg_to_sqlite(pg_conn, sqlite_conn):
         tansho_odds REAL, tansho_ninki INTEGER, 
         result_rank INTEGER,
         prediction_timestamp TEXT, 
+        odds_5min REAL,
+        odds_3min REAL,
         PRIMARY KEY (race_id, umaban)
     );
     """)
@@ -223,7 +236,8 @@ def sync_pg_to_sqlite(pg_conn, sqlite_conn):
                 cols = [
                     'race_id', 'umaban', 'horse_name', 'kaisai_date', 'keibajo', 'race_number',
                     'track_type', 'race_class', 'race_name', 'pred_win', 'pred_rank', 'pred_place',
-                    'tansho_odds', 'tansho_ninki', 'result_rank', 'prediction_timestamp'
+                    'tansho_odds', 'tansho_ninki', 'result_rank', 'prediction_timestamp',
+                    'odds_5min', 'odds_3min'
                 ]
             elif table_name == 'votes':
                 cols = [
@@ -270,6 +284,19 @@ def main():
         sys.exit(1)
         
     try:
+        # ローカル SQLite 側のスキーマ移行 (odds_5min, odds_3min)
+        try:
+            sqlite_cur = sqlite_conn.cursor()
+            sqlite_cur.execute("PRAGMA table_info(predictions);")
+            existing_cols = [row[1] for row in sqlite_cur.fetchall()]
+            for col_name in ['odds_5min', 'odds_3min']:
+                if col_name not in existing_cols:
+                    sqlite_cur.execute(f"ALTER TABLE predictions ADD COLUMN {col_name} REAL;")
+                    sqlite_conn.commit()
+                    print(f"[DB SYNC] Added column {col_name} (REAL) to Local SQLite predictions table.")
+        except Exception as local_migration_err:
+            print(f"[DB SYNC WARN] Local SQLite schema migration failed: {local_migration_err}")
+
         # Supabase側の初期化
         create_pg_tables_if_not_exists(pg_conn)
         

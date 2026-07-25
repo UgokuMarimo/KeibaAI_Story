@@ -23,6 +23,8 @@ def save_prediction_to_db(result_df: pd.DataFrame, shutuba_df: pd.DataFrame, rac
                 tansho_odds REAL, tansho_ninki INTEGER, 
                 result_rank INTEGER,  -- 結果更新用に残す
                 prediction_timestamp TEXT, 
+                odds_5min REAL, -- 5分前オッズ
+                odds_3min REAL, -- 3分前オッズ
                 PRIMARY KEY (race_id, umaban)
             );"""
             conn.execute(create_table_query)
@@ -35,7 +37,9 @@ def save_prediction_to_db(result_df: pd.DataFrame, shutuba_df: pd.DataFrame, rac
             required_cols = {
                 'race_class': 'TEXT',
                 'race_name': 'TEXT',
-                'pred_place': 'REAL'
+                'pred_place': 'REAL',
+                'odds_5min': 'REAL',
+                'odds_3min': 'REAL'
             }
             for col_name, col_type in required_cols.items():
                 if col_name not in existing_cols:
@@ -94,6 +98,8 @@ def send_discord_webhook(message: str, webhook_url: str = None):
         print(f"-> Message sent to Discord successfully. (Target: {target_url[-10:]}...)")
     except requests.exceptions.RequestException as e: print(f"[DISCORD ERROR]: {e}")
 
+import urllib.parse
+
 def format_for_discord(race_id, race_info, result_df):
     race_name = race_info.get('レース名', '不明'); venue = race_info.get('場名', '不明')
     race_number = str(race_id)[-2:].lstrip('0')
@@ -122,7 +128,29 @@ def format_for_discord(race_id, race_info, result_df):
             place_prob_val
         )
     body += "```"
-    return header + body
+
+    # X (Twitter) 1タップ投稿リンクの生成
+    try:
+        top_3 = result_df.head(3)
+        rank_emojis = ["🥇", "🥈", "🥉"]
+        x_lines = [f"🏁【{venue}{race_number}R {race_name}】AI勝率予測"]
+        for idx, (_, r) in enumerate(top_3.iterrows()):
+            w_val = r.get(prob_col, 0)
+            u_num = int(r.get('馬番', 0))
+            h_name = str(r.get('馬名', ''))[:5]
+            emoji = rank_emojis[idx] if idx < 3 else f"{idx+1}."
+            x_lines.append(f"{emoji} {u_num}番 {h_name} ({w_val:.1%})")
+        x_lines.append(f"\n#競馬AI #競馬予想 #{venue}競馬")
+        
+        x_text = "\n".join(x_lines)
+        encoded_text = urllib.parse.quote(x_text)
+        intent_url = f"https://twitter.com/intent/tweet?text={encoded_text}"
+        x_link_footer = f"\n[📱 **X (旧Twitter) にこの予測を1タップで投稿する**]({intent_url})"
+    except Exception as e:
+        x_link_footer = ""
+
+    return header + body + x_link_footer
+
 
 def save_vote_to_db(race_id: str, umaban: int, horse_name: str, kaisai_date: str, 
                      vote_type: str, vote_odds: float, pred_win_prob: float, 
@@ -165,3 +193,49 @@ def save_vote_to_db(race_id: str, umaban: int, horse_name: str, kaisai_date: str
             print(f"-> Vote for race_id {race_id}, horse {horse_name} (Umaban: {umaban}) saved to 'votes' table successfully.")
     except Exception as e:
         print(f"[DB ERROR] Failed to save vote to database: {e}")
+
+def update_predictions_odds_bulk(race_id: str, odds_dict: dict, target_col: str):
+    """predictions テーブルの odds_5min または odds_3min を一括更新する"""
+    if target_col not in ['odds_5min', 'odds_3min']:
+        raise ValueError(f"Invalid odds column: {target_col}")
+        
+    updates = []
+    for umaban, odds in odds_dict.items():
+        if odds is not None:
+            try:
+                updates.append((float(odds), race_id, int(umaban)))
+            except (ValueError, TypeError):
+                continue
+            
+    if not updates:
+        return
+
+    # 1. ローカル SQLite の更新
+    try:
+        with sqlite3.connect(config.DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(predictions);")
+            cols = [row[1] for row in cursor.fetchall()]
+            if target_col not in cols:
+                conn.execute(f"ALTER TABLE predictions ADD COLUMN {target_col} REAL;")
+                
+            query = f"UPDATE predictions SET {target_col} = ? WHERE race_id = ? AND umaban = ?"
+            conn.executemany(query, updates)
+            conn.commit()
+            print(f"[DB INFO] Updated {len(updates)} records for {target_col} (Local SQLite)")
+    except Exception as e:
+        print(f"[DB ERROR] Failed to bulk update {target_col} for {race_id} (Local): {e}")
+
+    # 2. Supabase PostgreSQL の更新
+    try:
+        from utils.db_sync import get_pg_conn
+        pg_conn = get_pg_conn()
+        with pg_conn.cursor() as cur:
+            query = f"UPDATE predictions SET {target_col} = %s WHERE race_id = %s AND umaban = %s"
+            cur.executemany(query, updates)
+        pg_conn.commit()
+        pg_conn.close()
+        print(f"[DB INFO] Updated {len(updates)} records for {target_col} (Supabase PostgreSQL)")
+    except Exception as e:
+        # 環境変数がない場合や、同期に失敗した場合は無視する（後で sync するため）
+        pass
