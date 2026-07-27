@@ -75,7 +75,16 @@ def calculate_performance_for_votes(votes_df: pd.DataFrame, results_cache: dict 
             if win_num_str and win_num_str.isdigit() and int(win_num_str) == umaban:
                 hit_bets += 1
                 pay_val = pay_dict.get('tansho_payout', 0)
-                payout_amount += int(amount * (pay_val / 100.0))
+                earned = int(amount * (pay_val / 100.0))
+                payout_amount += earned
+                hit_details.append({
+                    'race_id': race_id,
+                    'umaban': umaban,
+                    'vote_type': '単勝',
+                    'amount': amount,
+                    'payout': earned,
+                    'pay_val': pay_val
+                })
 
         # 2. 複勝判定
         elif vote_type in ('place', 'fukusho'):
@@ -85,7 +94,16 @@ def calculate_performance_for_votes(votes_df: pd.DataFrame, results_cache: dict 
                 if str(umaban) in fukusho_dict:
                     hit_bets += 1
                     pay_val = fukusho_dict[str(umaban)]
-                    payout_amount += int(amount * (pay_val / 100.0))
+                    earned = int(amount * (pay_val / 100.0))
+                    payout_amount += earned
+                    hit_details.append({
+                        'race_id': race_id,
+                        'umaban': umaban,
+                        'vote_type': '複勝',
+                        'amount': amount,
+                        'payout': earned,
+                        'pay_val': pay_val
+                    })
             except Exception:
                 pass
 
@@ -96,7 +114,8 @@ def calculate_performance_for_votes(votes_df: pd.DataFrame, results_cache: dict 
         'payout_amount': payout_amount,
         'recovery_rate': recovery_rate,
         'total_bets': total_bets,
-        'hit_bets': hit_bets
+        'hit_bets': hit_bets,
+        'hit_details': hit_details
     }, results_cache
 
 
