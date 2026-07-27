@@ -26,7 +26,7 @@ def decode_bytes(val):
 
 
 def export_real_prediction_mdx(target_date: str = '2026-07-26'):
-    print(f"--- Exporting ENHANCED prediction data for {target_date} from {DB_PATH} ---")
+    print(f"--- Exporting ENHANCED prediction data with EV logic for {target_date} from {DB_PATH} ---")
     if not os.path.exists(DB_PATH):
         print(f"[ERROR] DB not found at: {DB_PATH}")
         return
@@ -83,9 +83,33 @@ def export_real_prediction_mdx(target_date: str = '2026-07-26'):
     keibajo_str = "・".join(keibajo_list)
     total_races = df['race_id'].nunique()
 
-    # --- 1. 勝負レース Top 3 の選定 ---
-    top1_per_race = df[df['pred_rank'] == 1].sort_values(by='pred_win_prob', ascending=False)
-    勝負races = top1_per_race.head(3)
+    # --- 1. 改良版「勝負レース Top 3」選定ロジック ---
+    # オッズがある場合: 期待値(EV)が高い馬が含まれるレースを優先
+    # オッズがない場合: 1位勝率と2位勝率の差（絶対的本命度・ダントツ感）が大きいレースを優先
+    race_scores = []
+    for race_id, r_df in df.groupby('race_id', sort=False):
+        top1 = r_df[r_df['pred_rank'] == 1].iloc[0]
+        top2_prob = r_df[r_df['pred_rank'] == 2].iloc[0]['pred_win_prob'] if len(r_df) > 1 else 0.0
+        gap = top1['pred_win_prob'] - top2_prob
+        max_ev = r_df['ev'].max()
+
+        # 総合勝負度スコア (EV重視、または勝率差重視)
+        score = max_ev * 1.5 + gap * 0.5 if max_ev > 0 else gap + (top1['pred_win_prob'] * 0.2)
+
+        race_scores.append({
+            'race_id': race_id,
+            'keibajo': top1['keibajo'],
+            'race_number': top1['race_number'],
+            'race_name': top1['race_name'],
+            'top1_umaban': top1['umaban'],
+            'top1_horse_name': top1['horse_name'],
+            'top1_prob': top1['pred_win_prob'],
+            'max_ev': max_ev,
+            'score': score
+        })
+
+    race_score_df = pd.DataFrame(race_scores).sort_values(by='score', ascending=False)
+    勝負races = race_score_df.head(3)
 
     # --- 2. 的中実績の自動抽出 ---
     hit_races = df[(df['pred_rank'] == 1) & (df['result_rank'] == 1)]
@@ -116,16 +140,18 @@ def export_real_prediction_mdx(target_date: str = '2026-07-26'):
         lines.append("  </ul>")
         lines.append("</div>\n")
 
-    # --- 本日のAI勝負レース Top 3 ---
+    # --- 期待値＆信頼度重視の「本日のAI勝負レース Top 3」 ---
     if not 勝負races.empty:
-        lines.append("## 🎯 本日のAI勝負レース Top 3\n")
+        lines.append("## 🎯 本日のAI厳選・勝負レース Top 3\n")
+        lines.append("期待値（EV）および本命馬のAI評価信頼度に基づき厳選された注目レースです。\n")
         lines.append("<div className=\"grid grid-cols-1 md:grid-cols-3 gap-3 mb-8\">")
         for idx, (_, sr) in enumerate(勝負races.iterrows(), 1):
             r_anchor = f"#race-{sr['race_id']}"
+            ev_label = f" / 期待値: <strong>{sr['max_ev']:.2f}</strong>" if sr['max_ev'] > 0 else ""
             lines.append("  <div className=\"p-3 rounded-lg bg-white border border-[#2d6a4f]/30 shadow-xs\">")
             lines.append(f"    <div className=\"text-[11px] font-bold text-[#2d6a4f]\">勝負レース #{idx}</div>")
             lines.append(f"    <div className=\"font-bold text-sm text-slate-900\"><a href=\"{r_anchor}\">{sr['keibajo']}{sr['race_number']}R {sr['race_name']}</a></div>")
-            lines.append(f"    <div className=\"text-xs text-slate-600 mt-1\">◎ <strong>{sr['umaban']}番 {sr['horse_name']}</strong> (AI勝率: <strong>{sr['pred_win_prob']:.1f}%</strong>)</div>")
+            lines.append(f"    <div className=\"text-xs text-slate-600 mt-1\">◎ <strong>{sr['top1_umaban']}番 {sr['top1_horse_name']}</strong> (勝率: <strong>{sr['top1_prob']:.1f}%</strong>{ev_label})</div>")
             lines.append("  </div>")
         lines.append("</div>\n")
 
@@ -205,7 +231,7 @@ def export_real_prediction_mdx(target_date: str = '2026-07-26'):
     with open(out_file, 'w', encoding='utf-8') as f:
         f.write(mdx_content)
 
-    print(f"[SUCCESS] Exported ENHANCED real predictions MDX to: {out_file}")
+    print(f"[SUCCESS] Exported ENHANCED real predictions MDX with EV logic to: {out_file}")
 
 
 if __name__ == "__main__":
