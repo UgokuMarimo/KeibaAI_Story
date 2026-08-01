@@ -75,6 +75,7 @@ class AutoVoterManager:
         self.max_horses      = getattr(config, 'AUTO_VOTING_MAX_HORSES_PER_RACE', 1)
         self.max_odds        = getattr(config, 'AUTO_VOTING_MAX_ODDS', 15.0)
         self.min_odds        = getattr(config, 'AUTO_VOTING_MIN_ODDS', 2.0)
+        self.max_ev          = getattr(config, 'AUTO_VOTING_MAX_EV', 3.0)
         self.max_bets_per_day = getattr(config, 'AUTO_VOTING_MAX_BETS_PER_DAY', 5)
         self.max_amount_per_day = getattr(config, 'AUTO_VOTING_MAX_AMOUNT_PER_DAY', None)
 
@@ -206,6 +207,9 @@ class AutoVoterManager:
                     continue
                 if ev < self.target_ev:
                     skipped_reasons.append(f"  {umaban}番 {horse_name}: EV不足 ({ev:.2f} < {self.target_ev}, odds={odds:.1f})")
+                    continue
+                if self.max_ev and ev >= self.max_ev:
+                    skipped_reasons.append(f"  {umaban}番 {horse_name}: EV大きすぎ/大穴ノイズ ({ev:.2f} >= {self.max_ev}, odds={odds:.1f})")
                     continue
                 if odds < self.min_odds:
                     skipped_reasons.append(f"  {umaban}番 {horse_name}: オッズ低すぎ ({odds:.1f}倍 < {self.min_odds}倍)")

@@ -329,9 +329,9 @@ DISCORD_REPORT_WEBHOOK_URL = os.getenv("DISCORD_REPORT_WEBHOOK_URL")
 DISCORD_NOTIFY_MAX_HORSES = 18 # 通知に含める馬の数 (全頭送る場合は18などの最大値を設定)
 
 # --- 予測・馬券戦略設定 ---
-TARGET_EV = 1.3         # ターゲット期待値 (ベースデフォルト値)
-TARGET_EV_5MIN = 1.2     # 5分前足切り期待値しきい値 (仮選定)
-TARGET_EV_VOTE = 1.3     # 投票確定期待値しきい値 (本投票)
+TARGET_EV = 1.8         # ターゲット期待値 (最適化済み: 1.3 -> 1.8)
+TARGET_EV_5MIN = 1.6     # 5分前足切り期待値しきい値 (最適化済み: 1.2 -> 1.6)
+TARGET_EV_VOTE = 1.8     # 投票確定期待値しきい値 (最適化済み: 1.3 -> 1.8)
 MIN_WIN_PROB = 0.10     # 最低勝率の閾値
 EV_SAFETY_MARGIN = 0  # 期待値の安全マージン
 

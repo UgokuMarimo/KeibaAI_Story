@@ -144,3 +144,5 @@ scratch/
 .env
 .env.*
 
+# Local memo
+memo.txt
